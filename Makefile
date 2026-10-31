@@ -5,7 +5,7 @@ PDF_STYLE := docs/model-summary.css
 PDF_OUTPUT := docs/model-summary.pdf
 PDF_HTML := artifacts/model-summary.html
 
-.PHONY: all sync test example pdf
+.PHONY: all sync test example surrogate pdf
 
 all: test example
 
@@ -17,6 +17,9 @@ test: sync
 
 example: sync
 	uv run python examples/plot_trajectories.py
+
+surrogate: sync
+	uv run python examples/train_surrogate.py
 
 pdf: $(PDF_OUTPUT)
 
