@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "differentiable-reactor-lab"
+version = "0.1.0"
+description = "A reduced-order particle reactor simulator built with JAX"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "jax>=0.4.30",
+    "matplotlib>=3.8",
+]
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"

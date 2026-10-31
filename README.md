@@ -36,8 +36,43 @@ A small FastAPI service, surrogate ensembles, and uncertainty-based experiment s
 - A frontend, cloud deployment, Kubernetes, or a large MLOps platform.
 - Claims based on real reactor data.
 
+## Stage 1: physics foundation
+
+The package provides typed simulation configuration, jitted single-particle simulation, vmapped batches, trajectory summaries, and diagnostic plots. See [the physics documentation](docs/physics.md) for equations, units, validation rules, numerical details, and limitations. A [printable model summary](docs/model-summary.pdf) is also available.
+
+Use [uv](https://docs.astral.sh/uv/) for environment setup and all Python execution:
+
+```bash
+uv sync
+uv run pytest
+uv run python examples/plot_trajectories.py
+```
+
+Use `make test`, `make example`, or `make` for both; these targets wrap the uv commands above. Run `make pdf` to rebuild the printable model summary with Pandoc and Chromium.
+
+The example writes `artifacts/stage1-trajectories.png` and prints final oxide fraction, maximum particle temperature, and melting-threshold results for three synthetic cases.
+
+```python
+from reactor_lab import ParticleConfig, ReactorConfig, SimulationConfig, simulate
+
+config = SimulationConfig(
+    reactor=ReactorConfig(
+        peak_temperature=2_200.0,
+        residence_time=0.5,
+        hydrogen_concentration=50.0,
+    ),
+    particle=ParticleConfig(
+        diameter=50e-6,
+        initial_temperature=300.0,
+        initial_oxide_fraction=0.9,
+    ),
+)
+trajectory = simulate(config)
+print(trajectory.final_oxide_fraction)
+```
+
 ## Current status
 
-The scope and implementation plan are documented. Implementation has not started.
+Stage 1 physics foundation is complete. Data generation, surrogate training, optimization, and the CLI have not started.
 
-See [the MVP plan](docs/mvp-plan.md) for the detailed model scope, schedule, validation strategy, and definition of done.
+See [the MVP plan](docs/mvp-plan.md) for the detailed model scope, validation strategy, and definition of done.

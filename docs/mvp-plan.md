@@ -171,7 +171,7 @@ Potential follow-up work includes:
 
 - [x] Define project objective, scope, and non-goals
 - [x] Document the MVP plan
-- [ ] Implement and validate the physics simulator
+- [x] Implement and validate the physics simulator
 - [ ] Generate synthetic data and train the surrogate
 - [ ] Implement optimization and simulator validation
 - [ ] Add the CLI and reproducible end-to-end demo
