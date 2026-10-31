@@ -9,7 +9,6 @@ from reactor_lab import (
     ReactorConfig,
     SimulationConfig,
     SolverConfig,
-    Trajectory,
     simulate,
     simulate_batch,
 )
@@ -148,7 +147,7 @@ def test_melting_output_includes_initial_and_later_temperatures() -> None:
         (lambda: ParticleConfig(50e-6, 300.0, 1.1), "initial_oxide_fraction"),
         (lambda: MaterialConfig(emissivity=-0.1), "emissivity"),
         (lambda: MaterialConfig(activation_energy=-1.0), "activation_energy"),
-        (lambda: SolverConfig(num_steps=1.5), "integer"),
+        (lambda: SolverConfig(num_steps=1.5), "integer"),  # pyright: ignore[reportArgumentType]
         (lambda: SolverConfig(num_steps=0), "at least one"),
     ],
 )

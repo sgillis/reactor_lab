@@ -45,10 +45,11 @@ Use [uv](https://docs.astral.sh/uv/) for environment setup and all Python execut
 ```bash
 uv sync
 uv run pytest
+uv run basedpyright .
 uv run python examples/plot_trajectories.py
 ```
 
-Use `make test`, `make example`, or `make` for both; these targets wrap the uv commands above. Run `make pdf` to rebuild the printable model summary with Pandoc and Chromium.
+Use `make test`, `make typecheck`, `make example`, or `make` for all three; these targets wrap the uv commands above. Run `make pdf` to rebuild the printable model summary with Pandoc and Chromium.
 
 The example writes `artifacts/stage1-trajectories.png` and prints final oxide fraction, maximum particle temperature, and melting-threshold results for three synthetic cases.
 

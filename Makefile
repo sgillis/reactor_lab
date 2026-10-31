@@ -5,15 +5,18 @@ PDF_STYLE := docs/model-summary.css
 PDF_OUTPUT := docs/model-summary.pdf
 PDF_HTML := artifacts/model-summary.html
 
-.PHONY: all sync test example surrogate pdf
+.PHONY: all sync test typecheck example surrogate pdf
 
-all: test example
+all: test typecheck example
 
 sync:
 	uv sync
 
 test: sync
 	uv run pytest
+
+typecheck: sync
+	uv run basedpyright .
 
 example: sync
 	uv run python examples/plot_trajectories.py

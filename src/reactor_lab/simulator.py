@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from functools import partial
-from typing import NamedTuple, Sequence
+from typing import NamedTuple
 
 import jax
 import jax.numpy as jnp
@@ -33,12 +34,12 @@ class Trajectory(NamedTuple):
 
 
 def _simulate_scalars(
-    peak_temperature: jax.Array,
-    residence_time: jax.Array,
-    hydrogen_concentration: jax.Array,
-    diameter: jax.Array,
-    initial_temperature: jax.Array,
-    initial_oxide_fraction: jax.Array,
+    peak_temperature: float | jax.Array,
+    residence_time: float | jax.Array,
+    hydrogen_concentration: float | jax.Array,
+    diameter: float | jax.Array,
+    initial_temperature: float | jax.Array,
+    initial_oxide_fraction: float | jax.Array,
     material: MaterialConfig,
     solver: SolverConfig,
 ) -> Trajectory:

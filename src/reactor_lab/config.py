@@ -7,7 +7,7 @@ from math import isfinite
 from numbers import Integral, Real
 
 
-def _real(name: str, value: Real) -> float:
+def _real(name: str, value: object) -> float:
     if isinstance(value, bool) or not isinstance(value, Real):
         raise TypeError(f"{name} must be a real number")
     value = float(value)
@@ -16,21 +16,27 @@ def _real(name: str, value: Real) -> float:
     return value
 
 
-def _positive(name: str, value: Real) -> float:
+def _integer(name: str, value: object) -> int:
+    if isinstance(value, bool) or not isinstance(value, Integral):
+        raise TypeError(f"{name} must be an integer")
+    return int(value)
+
+
+def _positive(name: str, value: float) -> float:
     value = _real(name, value)
     if value <= 0:
         raise ValueError(f"{name} must be greater than zero")
     return value
 
 
-def _nonnegative(name: str, value: Real) -> float:
+def _nonnegative(name: str, value: float) -> float:
     value = _real(name, value)
     if value < 0:
         raise ValueError(f"{name} must be non-negative")
     return value
 
 
-def _fraction(name: str, value: Real) -> float:
+def _fraction(name: str, value: float) -> float:
     value = _real(name, value)
     if not 0 <= value <= 1:
         raise ValueError(f"{name} must be between zero and one")
@@ -41,9 +47,9 @@ def _fraction(name: str, value: Real) -> float:
 class ReactorConfig:
     """Reactor inputs; temperatures are in kelvin and time in seconds."""
 
-    peak_temperature: Real
-    residence_time: Real
-    hydrogen_concentration: Real
+    peak_temperature: float
+    residence_time: float
+    hydrogen_concentration: float
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -63,9 +69,9 @@ class ReactorConfig:
 class ParticleConfig:
     """Particle inputs; diameter is in metres and temperature in kelvin."""
 
-    diameter: Real
-    initial_temperature: Real
-    initial_oxide_fraction: Real
+    diameter: float
+    initial_temperature: float
+    initial_oxide_fraction: float
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "diameter", _positive("diameter", self.diameter))
@@ -85,14 +91,14 @@ class ParticleConfig:
 class MaterialConfig:
     """Illustrative material and model parameters in SI units."""
 
-    density: Real = 5_000.0
-    heat_capacity: Real = 500.0
-    heat_transfer_coefficient: Real = 100.0
-    emissivity: Real = 0.8
-    surroundings_temperature: Real = 300.0
-    melting_temperature: Real = 1_800.0
-    reaction_pre_exponential: Real = 0.05
-    activation_energy: Real = 30_000.0
+    density: float = 5_000.0
+    heat_capacity: float = 500.0
+    heat_transfer_coefficient: float = 100.0
+    emissivity: float = 0.8
+    surroundings_temperature: float = 300.0
+    melting_temperature: float = 1_800.0
+    reaction_pre_exponential: float = 0.05
+    activation_energy: float = 30_000.0
 
     def __post_init__(self) -> None:
         for name in (
@@ -112,14 +118,13 @@ class MaterialConfig:
 class SolverConfig:
     """Fixed-step numerical settings."""
 
-    num_steps: Integral = 1_000
+    num_steps: int = 1_000
 
     def __post_init__(self) -> None:
-        if isinstance(self.num_steps, bool) or not isinstance(self.num_steps, Integral):
-            raise TypeError("num_steps must be an integer")
-        if self.num_steps < 1:
+        num_steps = _integer("num_steps", self.num_steps)
+        if num_steps < 1:
             raise ValueError("num_steps must be at least one")
-        object.__setattr__(self, "num_steps", int(self.num_steps))
+        object.__setattr__(self, "num_steps", num_steps)
 
 
 @dataclass(frozen=True, slots=True)
@@ -149,8 +154,8 @@ class SimulationConfig:
 class Bounds:
     """Inclusive lower and exclusive upper bounds for uniform sampling."""
 
-    lower: Real
-    upper: Real
+    lower: float
+    upper: float
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "lower", _real("lower", self.lower))
@@ -189,14 +194,14 @@ class SamplingConfig:
     ood_bounds: InputBounds = InputBounds(
         peak_temperature=Bounds(2_800.0, 3_400.0)
     )
-    initial_temperature: Real = 300.0
+    initial_temperature: float = 300.0
     material: MaterialConfig = MaterialConfig()
     solver: SolverConfig = SolverConfig()
-    train_samples: Integral = 512
-    validation_samples: Integral = 128
-    test_samples: Integral = 128
-    ood_samples: Integral = 128
-    seed: Integral = 2_025
+    train_samples: int = 512
+    validation_samples: int = 128
+    test_samples: int = 128
+    ood_samples: int = 128
+    seed: int = 2_025
 
     def __post_init__(self) -> None:
         object.__setattr__(
@@ -216,17 +221,14 @@ class SamplingConfig:
             "test_samples",
             "ood_samples",
         ):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, Integral):
-                raise TypeError(f"{name} must be an integer")
+            value = _integer(name, getattr(self, name))
             if value < 1:
                 raise ValueError(f"{name} must be at least one")
-            object.__setattr__(self, name, int(value))
-        if isinstance(self.seed, bool) or not isinstance(self.seed, Integral):
-            raise TypeError("seed must be an integer")
-        if self.seed < 0:
+            object.__setattr__(self, name, value)
+        seed = _integer("seed", self.seed)
+        if seed < 0:
             raise ValueError("seed must be non-negative")
-        object.__setattr__(self, "seed", int(self.seed))
+        object.__setattr__(self, "seed", seed)
 
         for bounds in (self.sampling_bounds, self.ood_bounds):
             if bounds.peak_temperature.lower < self.material.surroundings_temperature:
@@ -261,26 +263,23 @@ class SamplingConfig:
 class TrainingConfig:
     """Small-MLP architecture and deterministic Optax training settings."""
 
-    hidden_width: Integral = 32
-    hidden_depth: Integral = 2
-    learning_rate: Real = 0.003
-    batch_size: Integral = 64
-    epochs: Integral = 300
-    seed: Integral = 2_025
+    hidden_width: int = 32
+    hidden_depth: int = 2
+    learning_rate: float = 0.003
+    batch_size: int = 64
+    epochs: int = 300
+    seed: int = 2_025
 
     def __post_init__(self) -> None:
         for name in ("hidden_width", "hidden_depth", "batch_size", "epochs"):
-            value = getattr(self, name)
-            if isinstance(value, bool) or not isinstance(value, Integral):
-                raise TypeError(f"{name} must be an integer")
+            value = _integer(name, getattr(self, name))
             if value < 1:
                 raise ValueError(f"{name} must be at least one")
-            object.__setattr__(self, name, int(value))
+            object.__setattr__(self, name, value)
         object.__setattr__(
             self, "learning_rate", _positive("learning_rate", self.learning_rate)
         )
-        if isinstance(self.seed, bool) or not isinstance(self.seed, Integral):
-            raise TypeError("seed must be an integer")
-        if self.seed < 0:
+        seed = _integer("seed", self.seed)
+        if seed < 0:
             raise ValueError("seed must be non-negative")
-        object.__setattr__(self, "seed", int(self.seed))
+        object.__setattr__(self, "seed", seed)
