@@ -31,9 +31,39 @@ jobs:
         run: uv run --locked pytest
       - name: Type-check
         run: uv run --locked basedpyright .
+      - name: Check generated OpenAPI schema
+        run: |
+          make openapi
+          git diff --exit-code -- openapi.json
       - name: Smoke-test the complete CLI workflow
         run: >-
           uv run --locked reactor-lab run-demo
           --train-samples 8 --epochs 2 --solver-steps 20
           --candidate-count 12 --validation-count 3
           --output-directory artifacts/ci-demo
+
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Check generated API types
+        run: |
+          npm run generate:api
+          git diff --exit-code -- src/api/schema.ts
+      - name: Type-check
+        run: npm run typecheck
+      - name: Build
+        run: npm run build

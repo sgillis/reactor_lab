@@ -5,7 +5,7 @@ PDF_STYLE := docs/model-summary.css
 PDF_OUTPUT := docs/model-summary.pdf
 PDF_HTML := artifacts/model-summary.html
 
-.PHONY: all sync test typecheck example surrogate demo pdf
+.PHONY: all sync test typecheck example surrogate demo pdf platform platform-down openapi frontend-generate
 
 all: test typecheck example
 
@@ -26,6 +26,18 @@ surrogate: sync
 
 demo: sync
 	uv run reactor-lab run-demo
+
+platform:
+	docker compose up --build
+
+platform-down:
+	docker compose down
+
+openapi:
+	uv run python -c 'import json; from pathlib import Path; from reactor_lab.platform.api import app; Path("openapi.json").write_text(json.dumps(app.openapi(), indent=2) + "\n", encoding="utf-8")'
+
+frontend-generate: openapi
+	cd frontend && npm run generate:api
 
 pdf: $(PDF_OUTPUT)
 

@@ -204,8 +204,55 @@ In `optimization.json`, `recommendation` is the lowest-temperature candidate tha
 
 GitHub Actions runs the locked test suite, static type checking, and a small installed-CLI demo on Python 3.11 and 3.12 for pull requests and pushes to `main`.
 
+## Stage 5: local web and compute platform
+
+The web platform wraps the same scientific workflows in a FastAPI control plane and asynchronous Dramatiq workers. PostgreSQL stores run and model metadata, Redis delivers jobs, and RustFS provides local S3-compatible artifact storage. The React frontend provides run submission, status monitoring, model lineage, artifact downloads, and interactive Plotly visualizations. See [ADR 0002](docs/adr/0002-adopt-production-platform-architecture.md) for the platform decisions and [ADR 0003](docs/adr/0003-use-rustfs-for-local-object-storage.md) for the local object-store selection.
+
+Start the complete local stack with Docker and Docker Compose:
+
+```bash
+make platform
+# or: docker compose up --build
+```
+
+Open `http://localhost:8080` for the application and `http://localhost:8000/docs` for the interactive OpenAPI documentation. The RustFS console is available at `http://localhost:9001`; the Compose development credentials are `minioadmin` / `minioadmin`. Host ports are bound to localhost. Do not expose this unauthenticated development configuration as a multi-user production deployment.
+
+The API container applies Alembic migrations during startup, and the application creates the configured artifact bucket. PostgreSQL, Redis, and RustFS use named volumes. Stop the stack without deleting its data using:
+
+```bash
+make platform-down
+```
+
+The frontend uses TypeScript types generated from `openapi.json`. After changing the API, regenerate the schema and client types, then check the frontend build:
+
+```bash
+npm --prefix frontend ci
+make frontend-generate
+npm --prefix frontend run typecheck
+npm --prefix frontend run build
+```
+
+FastAPI submissions return `202 Accepted` and a run ID. Simulation, training, and optimization execute in the worker rather than in web-request processes. The frontend polls only active runs; results and artifacts remain available after completion.
+
+## Architecture
+
+| Module | Responsibility |
+|---|---|
+| `config.py` | Immutable typed configuration, units, sampling bounds, seeds, and input validation |
+| `simulator.py` | Fixed-step particle dynamics and jitted/vmapped execution |
+| `data.py` | Seeded synthetic sampling, simulator-generated targets, split metadata, and dataset persistence |
+| `surrogate.py` | Equinox MLP training, normalization, prediction, and self-contained checkpoints |
+| `evaluation.py`, `plotting.py` | Held-out and separated-regime metrics plus diagnostic plots |
+| `optimization.py` | Surrogate screening, energy-proxy ranking, and physics-simulator validation |
+| `services.py` | Scientific workflow orchestration shared by CLI commands and asynchronous workers |
+| `cli.py` | Console adapter for simulation, training, optimization, and saved-demo replay |
+| `platform/` | FastAPI schemas and endpoints, SQLAlchemy records, Redis jobs, S3 storage, and worker dispatch |
+| `alembic/` | Versioned PostgreSQL schema migrations |
+| `frontend/` | React run/model interface, generated API types, and interactive numerical charts |
+| `compose.yaml` | Local API, worker, frontend, PostgreSQL, Redis, and RustFS topology |
+
 ## Current status
 
-All four MVP stages are complete. Benchmarks, a minimal API, and the other items listed as deferred in the MVP plan remain out of scope.
+The four scientific MVP stages and the initial local web platform are complete. The platform establishes production-shaped service boundaries; authentication, managed deployment, and cloud orchestration remain deployment concerns rather than local-demo features.
 
 See [the MVP plan](docs/mvp-plan.md) for the detailed model scope, validation strategy, and definition of done.

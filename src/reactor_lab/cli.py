@@ -4,11 +4,8 @@ from __future__ import annotations
 
 import argparse
 import json
-from dataclasses import asdict, is_dataclass
 from pathlib import Path
 from typing import Any
-
-import numpy as np
 
 from .config import (
     Bounds,
@@ -22,48 +19,13 @@ from .config import (
     SolverConfig,
     TrainingConfig,
 )
-from .data import generate_dataset, save_dataset
-from .evaluation import evaluate_surrogate
-from .optimization import optimize, save_optimization_result
-from .plotting import (
-    plot_surrogate_predictions,
-    plot_trajectories,
-    plot_surrogate_residuals,
-    plot_training_history,
+from .services import (
+    run_optimization,
+    run_simulation,
+    run_training,
+    write_json as _write_json,
 )
-from .simulator import simulate
-from .surrogate import (
-    Surrogate,
-    TrainingResult,
-    load_surrogate,
-    predict,
-    save_surrogate,
-    train_surrogate,
-)
-
-
-def _json_value(value: Any) -> Any:
-    if is_dataclass(value) and not isinstance(value, type):
-        return _json_value(asdict(value))
-    if isinstance(value, dict):
-        return {key: _json_value(item) for key, item in value.items()}
-    if isinstance(value, (list, tuple)):
-        return [_json_value(item) for item in value]
-    if isinstance(value, np.ndarray):
-        return value.tolist()
-    if isinstance(value, np.generic):
-        return value.item()
-    if isinstance(value, Path):
-        return str(value)
-    return value
-
-
-def _write_json(output_path: Path, value: Any) -> None:
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(
-        json.dumps(_json_value(value), indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+from .surrogate import Surrogate, TrainingResult, load_surrogate
 
 
 def _derived_split_size(train_samples: int) -> int:
@@ -138,35 +100,13 @@ def _run_simulation(args: argparse.Namespace) -> int:
         ),
         solver=SolverConfig(num_steps=args.solver_steps),
     )
-    trajectory = simulate(config)
-    output_directory = args.output_directory
-    output_directory.mkdir(parents=True, exist_ok=True)
-    np.savez_compressed(
-        output_directory / "trajectory.npz",
-        time=np.asarray(trajectory.time),
-        temperature=np.asarray(trajectory.temperature),
-        oxide_fraction=np.asarray(trajectory.oxide_fraction),
-        gas_temperature=np.asarray(trajectory.gas_temperature),
-        reached_melting=np.asarray(trajectory.reached_melting),
-    )
-    summary = {
-        "schema_version": 1,
-        "synthetic": True,
-        "final_oxide_fraction": float(trajectory.final_oxide_fraction),
-        "maximum_temperature": float(trajectory.maximum_temperature),
-        "reached_melting": bool(trajectory.reached_melting),
-    }
-    _write_json(output_directory / "config.json", config)
-    _write_json(output_directory / "result.json", summary)
-    if args.plot:
-        plot_trajectories(
-            {"Simulation": trajectory}, output_directory / "trajectories.png"
-        )
+    outcome = run_simulation(config, args.output_directory, plot=args.plot)
+    summary = outcome.summary
     print(
         f"Final oxide fraction: {summary['final_oxide_fraction']:.6f}\n"
         f"Maximum particle temperature: {summary['maximum_temperature']:.2f} K\n"
         f"Reached melting: {summary['reached_melting']}\n"
-        f"Saved simulation to {output_directory}"
+        f"Saved simulation to {args.output_directory}"
     )
     return 0
 
@@ -176,30 +116,8 @@ def _train_and_save(
     training_config: TrainingConfig,
     output_directory: Path,
 ) -> tuple[Surrogate, TrainingResult, dict[str, dict[str, dict[str, float | None]]]]:
-    output_directory.mkdir(parents=True, exist_ok=True)
-    dataset = generate_dataset(sampling_config)
-    save_dataset(dataset, output_directory / "dataset.npz")
-    print(f"Generated {dataset.features.shape[0]} synthetic simulations")
-
-    result = train_surrogate(dataset, training_config)
-    save_surrogate(result.model, output_directory)
-    _write_json(output_directory / "history.json", result.history)
-
-    # Evaluate the serialized checkpoint, not just the in-memory model.
-    model = load_surrogate(output_directory)
-    metrics = evaluate_surrogate(model, dataset)
-    _write_json(output_directory / "metrics.json", metrics)
-
-    simulated = {}
-    predicted = {}
-    for split_name in ("test", "ood"):
-        split = dataset.get_split(split_name)
-        simulated[split_name] = split.targets
-        predicted[split_name] = np.asarray(predict(model, split.features))
-    plot_surrogate_predictions(simulated, predicted, output_directory / "predictions.png")
-    plot_surrogate_residuals(simulated, predicted, output_directory / "residuals.png")
-    plot_training_history(result.history, output_directory / "training-history.png")
-    return model, result, metrics
+    outcome = run_training(sampling_config, training_config, output_directory)
+    return outcome.model, outcome.result, outcome.metrics
 
 
 def _run_training(args: argparse.Namespace) -> int:
@@ -217,12 +135,14 @@ def _optimize_and_save(
     output_directory: Path,
     model_checkpoint: Path,
 ) -> int:
-    result = optimize(model, config)
-    report_path = save_optimization_result(
-        result,
-        output_directory / "optimization.json",
+    outcome = run_optimization(
+        model,
+        config,
+        output_directory,
         model_checkpoint=model_checkpoint,
     )
+    result = outcome.result
+    report_path = output_directory / "optimization.json"
     recommendation = result.recommendation
     if recommendation is None:
         print(
