@@ -57,7 +57,6 @@ The equations, parameter sources or illustrative nature, units, valid ranges, an
 - Add batched execution with `jit` and `vmap`.
 - Inspect representative trajectories for physical plausibility.
 - Add correctness tests for important limiting cases.
-- Benchmark individual and batched execution.
 
 Diffrax is the preferred integration option if it remains simple. A small fixed-step solver is an acceptable MVP alternative; solver sophistication is not a project objective.
 
@@ -97,8 +96,6 @@ run-demo
 
 The `run-demo` command should execute the complete core workflow with a small configuration and save its outputs. Notebooks may help visualize results but must not be required to use the system.
 
-If time remains, add a minimal FastAPI service with health, simulation, and optimization endpoints.
-
 ### 5. Documentation and presentation
 
 Document:
@@ -108,7 +105,6 @@ Document:
 - Architecture and data flow
 - Surrogate evaluation, including out-of-distribution behaviour
 - Optimization results and simulator validation
-- Benchmark methodology and results
 - Reproducibility controls and remaining limitations
 
 ## Validation strategy
@@ -141,7 +137,7 @@ Implement candidate search, constrained selection, simulator validation, and the
 
 ### Stage 4: hardening and documentation
 
-Finish tests and reproducibility checks, add an optional minimal API, record benchmarks, and ensure a fresh setup can run the demo and understand the results.
+Finish tests, CI, and reproducibility checks, and ensure a fresh setup can run the demo and understand the results. Benchmarks and the optional minimal API are deferred to a later stage.
 
 ## Definition of done
 
@@ -160,6 +156,8 @@ The MVP is complete when a reviewer can:
 
 Potential follow-up work includes:
 
+- Performance benchmarks for individual and batched execution
+- A minimal FastAPI service with health, simulation, and optimization endpoints
 - Uncertainty quantification and a fuller active-learning loop
 - Gradient-based or multi-objective process optimization
 - Bayesian parameter calibration with NumPyro
@@ -175,4 +173,4 @@ Potential follow-up work includes:
 - [x] Generate synthetic data and train the surrogate
 - [x] Implement optimization and simulator validation
 - [x] Add the CLI and reproducible end-to-end demo
-- [ ] Complete tests, benchmarks, CI, and usage documentation
+- [x] Complete tests, CI, and usage documentation

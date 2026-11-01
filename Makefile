@@ -10,7 +10,7 @@ PDF_HTML := artifacts/model-summary.html
 all: test typecheck example
 
 sync:
-	uv sync
+	uv sync --all-groups
 
 test: sync
 	uv run pytest

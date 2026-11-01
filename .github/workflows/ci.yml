@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.12"]
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up uv and Python
+        uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install locked dependencies
+        run: uv sync --locked --all-groups
+      - name: Run tests
+        run: uv run --locked pytest
+      - name: Type-check
+        run: uv run --locked basedpyright .
+      - name: Smoke-test the complete CLI workflow
+        run: >-
+          uv run --locked reactor-lab run-demo
+          --train-samples 8 --epochs 2 --solver-steps 20
+          --candidate-count 12 --validation-count 3
+          --output-directory artifacts/ci-demo

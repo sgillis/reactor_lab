@@ -3,6 +3,7 @@ import json
 import numpy as np
 import pytest
 
+from reactor_lab import load_surrogate, predict
 from reactor_lab.cli import main
 
 
@@ -129,6 +130,48 @@ def test_run_demo_saves_complete_reproducible_workflow(demo_output) -> None:
     assert len(report["validated_candidates"]) <= 3
     if report["recommendation"] is not None:
         assert report["recommendation"]["simulator_feasible"] is True
+
+
+def test_run_demo_replays_saved_config_reproducibly(demo_output, tmp_path) -> None:
+    replay_output = tmp_path / "replayed-demo"
+    status = main(
+        [
+            "run-demo",
+            "--config",
+            str(demo_output / "run-config.json"),
+            "--output-directory",
+            str(replay_output),
+        ]
+    )
+
+    assert status == 0
+    for name in ("run-config.json", "config.json", "history.json", "metrics.json"):
+        assert json.loads((replay_output / name).read_text(encoding="utf-8")) == json.loads(
+            (demo_output / name).read_text(encoding="utf-8")
+        )
+
+    with (
+        np.load(demo_output / "dataset.npz", allow_pickle=False) as original,
+        np.load(replay_output / "dataset.npz", allow_pickle=False) as replayed,
+    ):
+        for name in ("features", "targets", "split"):
+            np.testing.assert_array_equal(replayed[name], original[name])
+        features = original["features"].copy()
+
+    np.testing.assert_array_equal(
+        predict(load_surrogate(replay_output), features),
+        predict(load_surrogate(demo_output), features),
+    )
+
+    original_report = json.loads(
+        (demo_output / "optimization.json").read_text(encoding="utf-8")
+    )
+    replayed_report = json.loads(
+        (replay_output / "optimization.json").read_text(encoding="utf-8")
+    )
+    original_report.pop("model_checkpoint")
+    replayed_report.pop("model_checkpoint")
+    assert replayed_report == original_report
 
 
 def test_optimize_command_loads_checkpoint_and_reports_validation(

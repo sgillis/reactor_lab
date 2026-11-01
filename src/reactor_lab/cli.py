@@ -11,6 +11,9 @@ from typing import Any
 import numpy as np
 
 from .config import (
+    Bounds,
+    InputBounds,
+    MaterialConfig,
     OptimizationConfig,
     ParticleConfig,
     ReactorConfig,
@@ -251,10 +254,54 @@ def _run_optimization(args: argparse.Namespace) -> int:
     )
 
 
+def _input_bounds_from_json(value: dict[str, Any]) -> InputBounds:
+    return InputBounds(
+        **{name: Bounds(**bounds) for name, bounds in value.items()}
+    )
+
+
+def _load_demo_config(
+    input_path: Path,
+) -> tuple[SamplingConfig, TrainingConfig, OptimizationConfig]:
+    payload = json.loads(input_path.read_text(encoding="utf-8"))
+    if payload.get("schema_version") != 1:
+        raise ValueError("unsupported demo configuration schema_version")
+
+    sampling_settings = dict(payload["sampling_config"])
+    sampling_settings["sampling_bounds"] = _input_bounds_from_json(
+        sampling_settings["sampling_bounds"]
+    )
+    sampling_settings["ood_bounds"] = _input_bounds_from_json(
+        sampling_settings["ood_bounds"]
+    )
+    sampling_settings["material"] = MaterialConfig(**sampling_settings["material"])
+    sampling_settings["solver"] = SolverConfig(**sampling_settings["solver"])
+
+    optimization_settings = dict(payload["optimization_config"])
+    optimization_settings["sampling_bounds"] = _input_bounds_from_json(
+        optimization_settings["sampling_bounds"]
+    )
+    optimization_settings["material"] = MaterialConfig(
+        **optimization_settings["material"]
+    )
+    optimization_settings["solver"] = SolverConfig(**optimization_settings["solver"])
+
+    return (
+        SamplingConfig(**sampling_settings),
+        TrainingConfig(**payload["training_config"]),
+        OptimizationConfig(**optimization_settings),
+    )
+
+
 def _run_demo(args: argparse.Namespace) -> int:
-    sampling_config = _sampling_config(args)
-    training_config = _training_config(args)
-    optimization_config = _optimization_config(args)
+    if args.config is None:
+        sampling_config = _sampling_config(args)
+        training_config = _training_config(args)
+        optimization_config = _optimization_config(args)
+    else:
+        sampling_config, training_config, optimization_config = _load_demo_config(
+            args.config
+        )
     output_directory = args.output_directory
     _write_json(
         output_directory / "run-config.json",
@@ -316,6 +363,11 @@ def _build_parser() -> argparse.ArgumentParser:
     optimize_parser.set_defaults(handler=_run_optimization)
 
     demo_parser = subparsers.add_parser("run-demo", help="run the complete core workflow")
+    demo_parser.add_argument(
+        "--config",
+        type=Path,
+        help="load workflow settings from a saved run-config.json",
+    )
     _add_training_arguments(demo_parser)
     demo_parser.add_argument("--candidate-count", type=int, default=4_096)
     demo_parser.add_argument("--validation-count", type=int, default=16)

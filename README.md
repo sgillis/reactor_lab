@@ -1,12 +1,12 @@
-# Differentiable Reactor Lab
+# Reactor Lab
 
-Differentiable Reactor Lab is an independent JAX portfolio project at the intersection of physics, machine learning, and production software engineering. It is inspired by the simulation-and-learning workflows used in industrial high-temperature processing.
+Reactor Lab is an independent JAX portfolio project at the intersection of physics, machine learning, and production software engineering. It is inspired by the simulation-and-learning workflows used in industrial high-temperature processing.
 
-The project will use a deliberately simplified model of metal-oxide particles passing through a hot hydrogen-gas reactor. The scientific goal is not to reproduce plasma-reactor physics quantitatively. The engineering goal is to turn a reduced-order physical model into a tested, reproducible, usable simulation-and-optimization system.
+The project uses a deliberately simplified model of metal-oxide particles passing through a hot hydrogen-gas reactor. The scientific goal is not to reproduce plasma-reactor physics quantitatively. The engineering goal is to turn a reduced-order physical model into a tested, reproducible, usable simulation-and-optimization system.
 
-## Intended workflow
+## Workflow
 
-The MVP should demonstrate this complete loop:
+The project demonstrates this complete loop:
 
 1. Configure a reactor and particle population.
 2. Simulate particle heating and oxide reduction with JAX.
@@ -15,7 +15,20 @@ The MVP should demonstrate this complete loop:
 5. Search for operating conditions that satisfy quality constraints.
 6. Validate the recommended conditions with the physics simulator.
 
-All data will be synthetic. Peak gas-temperature setpoint may be used as an explicitly labelled energy proxy; it must not be presented as a physical energy-consumption calculation.
+All data are synthetic. Peak gas-temperature setpoint is used as an explicitly labelled energy proxy; it is not a physical energy-consumption calculation.
+
+## Quickstart
+
+Install [uv](https://docs.astral.sh/uv/), then run these commands from a fresh checkout:
+
+```bash
+uv sync --all-groups
+uv run reactor-lab run-demo
+uv run pytest
+uv run basedpyright .
+```
+
+`uv sync --all-groups` installs the locked runtime and development dependencies. Use `uv sync` instead if only the CLI is needed. The demo writes the complete synthetic workflow to `artifacts/demo/`; the tests and type checker do not require a GPU or external data.
 
 ## MVP deliverables
 
@@ -24,7 +37,7 @@ All data will be synthetic. Peak gas-temperature setpoint may be used as an expl
 - A small surrogate model with reproducible training and held-out evaluation.
 - Constrained process-condition recommendations validated against the simulator.
 - A command-line interface for simulation, training, optimization, and an end-to-end demo.
-- Automated tests, trajectory and surrogate diagnostic plots, and a short performance benchmark.
+- Automated tests and trajectory and surrogate diagnostic plots.
 - Setup instructions and one reproducible demo command.
 
 A small FastAPI service, surrogate ensembles, and uncertainty-based experiment selection are stretch goals rather than requirements for the initial MVP.
@@ -40,16 +53,15 @@ A small FastAPI service, surrogate ensembles, and uncertainty-based experiment s
 
 The package provides typed simulation configuration, jitted single-particle simulation, vmapped batches, trajectory summaries, and diagnostic plots. See [the physics documentation](docs/physics.md) for equations, units, validation rules, numerical details, and limitations. A [printable model summary](docs/model-summary.pdf) is also available.
 
-Use [uv](https://docs.astral.sh/uv/) for environment setup and all Python execution:
+Run one simulation with a diagnostic plot:
 
 ```bash
-uv sync
-uv run pytest
-uv run basedpyright .
 uv run reactor-lab simulate --plot
+# or
+make example
 ```
 
-Use `make test`, `make typecheck`, `make example`, or `make` for all three; these targets wrap the uv commands above. Run `make pdf` to rebuild the printable model summary with Pandoc and Chromium.
+Use `make test`, `make typecheck`, or `make demo` for the corresponding uv workflows; `make` runs tests, type checking, and the simulation example. Run `make pdf` to rebuild the printable model summary with Pandoc and Chromium.
 
 The command writes `artifacts/simulation/trajectories.png`, trajectory arrays, and JSON settings and results for one synthetic case. It also prints final oxide fraction, maximum particle temperature, and the melting-threshold result.
 
@@ -162,8 +174,38 @@ The optimization report records the complete configuration and seed, model check
 
 `run-demo` executes data generation, training, checkpoint reload, evaluation, optimization, and simulator validation in `artifacts/demo/`. It saves `run-config.json` with the fixed sampling, training, and optimization settings alongside all resulting artifacts. `python -m reactor_lab` provides the same interface as `reactor-lab`.
 
+## Architecture
+
+| Module | Responsibility |
+|---|---|
+| `config.py` | Immutable typed configuration, units, sampling bounds, seeds, and input validation |
+| `simulator.py` | Fixed-step particle dynamics and jitted/vmapped execution |
+| `data.py` | Seeded synthetic sampling, simulator-generated targets, split metadata, and dataset persistence |
+| `surrogate.py` | Equinox MLP training, normalization, prediction, and self-contained checkpoints |
+| `evaluation.py`, `plotting.py` | Held-out and separated-regime metrics plus diagnostic plots |
+| `optimization.py` | Surrogate screening, energy-proxy ranking, and physics-simulator validation |
+| `cli.py` | Console workflows, artifact writing, and saved-demo replay |
+
+## Stage 4: reproducibility, CI, and results
+
+Replay a demo directly from its saved typed configuration:
+
+```bash
+uv run reactor-lab run-demo \
+  --config artifacts/demo/run-config.json \
+  --output-directory artifacts/replayed-demo
+```
+
+With `--config`, the file supplies all sampling, training, and optimization settings, including model architecture, physical parameters, solver settings, and seeds. Corresponding command-line options are not used; `--output-directory` still selects the destination. The replay writes a fresh `run-config.json`, so subsequent runs can be replayed in the same way.
+
+Fixed seeds and `uv.lock` make the workflow reproducible on the same dependency and hardware/software stack. The automated checks compare repeated datasets, training history, metrics, reloaded-model predictions, and optimization results. Bitwise-identical floating-point results across different JAX versions, operating systems, or hardware are not guaranteed.
+
+In `optimization.json`, `recommendation` is the lowest-temperature candidate that passed both surrogate screening and simulator validation among the validated leading candidates; it is `null` when none passed. Each entry in `validated_candidates` records its input `features`, both surrogate predictions, simulator outputs, and `simulator_feasible`. Compare the surrogate and simulator values rather than treating the surrogate prediction as validation. `surrogate_feasible_count` reports screening outcomes before simulator validation. All results remain synthetic toy-model outputs.
+
+GitHub Actions runs the locked test suite, static type checking, and a small installed-CLI demo on Python 3.11 and 3.12 for pull requests and pushes to `main`.
+
 ## Current status
 
-Stages 1, 2, and 3 are complete. The remaining MVP work is Stage 4 hardening, benchmarks, CI, and final reproducibility checks.
+All four MVP stages are complete. Benchmarks, a minimal API, and the other items listed as deferred in the MVP plan remain out of scope.
 
 See [the MVP plan](docs/mvp-plan.md) for the detailed model scope, validation strategy, and definition of done.
