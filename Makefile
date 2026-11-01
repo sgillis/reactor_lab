@@ -5,7 +5,7 @@ PDF_STYLE := docs/model-summary.css
 PDF_OUTPUT := docs/model-summary.pdf
 PDF_HTML := artifacts/model-summary.html
 
-.PHONY: all sync test typecheck example surrogate pdf
+.PHONY: all sync test typecheck example surrogate demo pdf
 
 all: test typecheck example
 
@@ -19,10 +19,13 @@ typecheck: sync
 	uv run basedpyright .
 
 example: sync
-	uv run python examples/plot_trajectories.py
+	uv run reactor-lab simulate --plot
 
 surrogate: sync
-	uv run python examples/train_surrogate.py
+	uv run reactor-lab train --train-samples 512 --epochs 300
+
+demo: sync
+	uv run reactor-lab run-demo
 
 pdf: $(PDF_OUTPUT)
 

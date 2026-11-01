@@ -4,6 +4,7 @@ from .config import (
     Bounds,
     InputBounds,
     MaterialConfig,
+    OptimizationConfig,
     ParticleConfig,
     ReactorConfig,
     SamplingConfig,
@@ -19,6 +20,12 @@ from .data import (
     save_dataset,
 )
 from .evaluation import evaluate_surrogate, regression_metrics
+from .optimization import (
+    OptimizationResult,
+    ValidatedCandidate,
+    optimize,
+    save_optimization_result,
+)
 from .simulator import Trajectory, simulate, simulate_batch
 from .surrogate import (
     Surrogate,
@@ -34,6 +41,8 @@ __all__ = [
     "DatasetSplit",
     "InputBounds",
     "MaterialConfig",
+    "OptimizationConfig",
+    "OptimizationResult",
     "ParticleConfig",
     "ReactorConfig",
     "SamplingConfig",
@@ -44,13 +53,16 @@ __all__ = [
     "TrainingConfig",
     "TrainingResult",
     "Trajectory",
+    "ValidatedCandidate",
     "evaluate_surrogate",
     "generate_dataset",
     "load_dataset",
     "load_surrogate",
+    "optimize",
     "predict",
     "regression_metrics",
     "save_dataset",
+    "save_optimization_result",
     "save_surrogate",
     "simulate",
     "simulate_batch",

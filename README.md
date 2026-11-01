@@ -46,12 +46,12 @@ Use [uv](https://docs.astral.sh/uv/) for environment setup and all Python execut
 uv sync
 uv run pytest
 uv run basedpyright .
-uv run python examples/plot_trajectories.py
+uv run reactor-lab simulate --plot
 ```
 
 Use `make test`, `make typecheck`, `make example`, or `make` for all three; these targets wrap the uv commands above. Run `make pdf` to rebuild the printable model summary with Pandoc and Chromium.
 
-The example writes `artifacts/stage1-trajectories.png` and prints final oxide fraction, maximum particle temperature, and melting-threshold results for three synthetic cases.
+The command writes `artifacts/simulation/trajectories.png`, trajectory arrays, and JSON settings and results for one synthetic case. It also prints final oxide fraction, maximum particle temperature, and the melting-threshold result.
 
 ```python
 from reactor_lab import ParticleConfig, ReactorConfig, SimulationConfig, simulate
@@ -77,23 +77,23 @@ print(trajectory.final_oxide_fraction)
 Run the complete data-and-surrogate workflow with:
 
 ```bash
-uv run python examples/train_surrogate.py
+uv run reactor-lab train --train-samples 512 --epochs 300
 # or
 make surrogate
 ```
 
-The example generates 896 synthetic simulations using a fixed seed. It samples peak temperature, residence time, hydrogen concentration, particle diameter, and initial oxide fraction. Initial particle temperature is fixed at 300 K. In-distribution peak temperatures span 1,800–2,800 K; the separated operating regime spans 2,800–3,400 K and is excluded from training and validation by construction. All sampling bounds, fixed physics settings, split assignments, and feature ordering are saved with the dataset.
+The command generates 896 synthetic simulations using a fixed seed. It samples peak temperature, residence time, hydrogen concentration, particle diameter, and initial oxide fraction. Initial particle temperature is fixed at 300 K. In-distribution peak temperatures span 1,800–2,800 K; the separated operating regime spans 2,800–3,400 K and is excluded from training and validation by construction. All sampling bounds, fixed physics settings, split assignments, and feature ordering are saved with the dataset.
 
 The two-output Equinox MLP predicts final oxide fraction and maximum particle temperature. Optax Adam trains on targets normalized using training-set statistics only. The `model.eqx` checkpoint contains both network parameters and normalization arrays; `config.json` records the architecture, seed, and exact feature and target ordering. See [ADR 0001](docs/adr/0001-use-equinox-and-optax.md) for the framework decision.
 
-Outputs are written to `artifacts/stage2/`:
+Outputs are written to `artifacts/surrogate-training/`:
 
 - `dataset.npz` and `dataset.json`: synthetic arrays, split labels, sampling bounds, and run settings.
 - `model.eqx` and `config.json`: reloadable surrogate and training configuration.
 - `history.json` and `metrics.json`: normalized-MSE history and per-target test metrics.
 - `predictions.png`, `residuals.png`, and `training-history.png`: diagnostic plots.
 
-The example evaluates the reloaded checkpoint. With the checked-in defaults, the synthetic results are:
+The command evaluates the reloaded checkpoint. With the command settings above, the synthetic results are:
 
 | Regime | Target | MAE | RMSE | R² |
 |---|---|---:|---:|---:|
@@ -141,8 +141,29 @@ Oxide-fraction predictions are relatively accurate in both regimes, although MAE
 
 These metrics measure agreement with the synthetic toy simulator, not accuracy against experimental reactor data. Interpolation accuracy does not establish extrapolation reliability.
 
+## Stage 3: optimization and CLI
+
+Install the local command with `uv sync`, then run the core workflows:
+
+```bash
+uv run reactor-lab simulate --plot
+uv run reactor-lab train
+uv run reactor-lab optimize --model-directory artifacts/surrogate-training
+uv run reactor-lab run-demo
+# or run the complete demo with:
+make demo
+```
+
+`simulate` writes its typed configuration, scalar summary, and trajectory arrays to `artifacts/simulation/`; `--plot` also writes `trajectories.png` with particle and gas temperatures plus the oxide-fraction trajectory. `train` generates synthetic data, trains and reloads a checkpoint, evaluates both test regimes, and writes the model, metrics, history, and diagnostic plots to `artifacts/surrogate-training/`. Command options and smaller sample, epoch, and solver settings are available through `uv run reactor-lab COMMAND --help`.
+
+`optimize` samples candidates reproducibly and predicts their final oxide fraction and maximum particle temperature with the surrogate. It rejects predictions outside the configured constraints, ranks feasible candidates by peak gas-temperature setpoint as an explicitly labelled **energy proxy**, and validates the leading candidates with the physics simulator. A recommendation must pass both surrogate screening and simulator validation. If no candidate passes, the command reports that outcome without relaxing the constraints.
+
+The optimization report records the complete configuration and seed, model checkpoint location, surrogate-feasible candidate count, and surrogate predictions alongside simulator validation for every evaluated leading candidate. Simulator agreement still describes only the synthetic toy model, not experimental reactor accuracy.
+
+`run-demo` executes data generation, training, checkpoint reload, evaluation, optimization, and simulator validation in `artifacts/demo/`. It saves `run-config.json` with the fixed sampling, training, and optimization settings alongside all resulting artifacts. `python -m reactor_lab` provides the same interface as `reactor-lab`.
+
 ## Current status
 
-Stages 1 and 2 are complete. Optimization and the CLI have not started.
+Stages 1, 2, and 3 are complete. The remaining MVP work is Stage 4 hardening, benchmarks, CI, and final reproducibility checks.
 
 See [the MVP plan](docs/mvp-plan.md) for the detailed model scope, validation strategy, and definition of done.

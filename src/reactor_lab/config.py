@@ -260,6 +260,60 @@ class SamplingConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class OptimizationConfig:
+    """Deterministic surrogate screening and simulator-validation settings."""
+
+    sampling_bounds: InputBounds = InputBounds()
+    initial_temperature: float = 300.0
+    material: MaterialConfig = MaterialConfig()
+    solver: SolverConfig = SolverConfig()
+    candidate_count: int = 4_096
+    validation_count: int = 16
+    max_final_oxide_fraction: float = 0.75
+    seed: int = 2_025
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "initial_temperature", _positive("initial_temperature", self.initial_temperature)
+        )
+        for name, value, expected_type in (
+            ("sampling_bounds", self.sampling_bounds, InputBounds),
+            ("material", self.material, MaterialConfig),
+            ("solver", self.solver, SolverConfig),
+        ):
+            if not isinstance(value, expected_type):
+                raise TypeError(f"{name} must be a {expected_type.__name__}")
+        for name in ("candidate_count", "validation_count"):
+            value = _integer(name, getattr(self, name))
+            if value < 1:
+                raise ValueError(f"{name} must be at least one")
+            object.__setattr__(self, name, value)
+        object.__setattr__(
+            self,
+            "max_final_oxide_fraction",
+            _fraction("max_final_oxide_fraction", self.max_final_oxide_fraction),
+        )
+        seed = _integer("seed", self.seed)
+        if seed < 0:
+            raise ValueError("seed must be non-negative")
+        object.__setattr__(self, "seed", seed)
+
+        bounds = self.sampling_bounds
+        if bounds.peak_temperature.lower < self.material.surroundings_temperature:
+            raise ValueError("peak_temperature bounds must be at least surroundings_temperature")
+        if bounds.residence_time.lower <= 0:
+            raise ValueError("residence_time bounds must be greater than zero")
+        if bounds.hydrogen_concentration.lower < 0:
+            raise ValueError("hydrogen_concentration bounds must be non-negative")
+        if bounds.diameter.lower <= 0:
+            raise ValueError("diameter bounds must be greater than zero")
+        if not 0 <= bounds.initial_oxide_fraction.lower <= 1:
+            raise ValueError("initial_oxide_fraction bounds must be between zero and one")
+        if not 0 <= bounds.initial_oxide_fraction.upper <= 1:
+            raise ValueError("initial_oxide_fraction bounds must be between zero and one")
+
+
+@dataclass(frozen=True, slots=True)
 class TrainingConfig:
     """Small-MLP architecture and deterministic Optax training settings."""
 

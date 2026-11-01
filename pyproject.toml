@@ -21,6 +21,9 @@ dependencies = [
     "optax>=0.2",
 ]
 
+[project.scripts]
+reactor-lab = "reactor_lab.cli:main"
+
 [dependency-groups]
 dev = [
     "basedpyright>=1.40.2",

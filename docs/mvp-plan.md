@@ -173,6 +173,6 @@ Potential follow-up work includes:
 - [x] Document the MVP plan
 - [x] Implement and validate the physics simulator
 - [x] Generate synthetic data and train the surrogate
-- [ ] Implement optimization and simulator validation
-- [ ] Add the CLI and reproducible end-to-end demo
+- [x] Implement optimization and simulator validation
+- [x] Add the CLI and reproducible end-to-end demo
 - [ ] Complete tests, benchmarks, CI, and usage documentation
