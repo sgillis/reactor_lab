@@ -167,6 +167,10 @@ export function OptimizationForm({ onSubmit, isPending, error, models, modelsLoa
       setLocalError(boundsError);
       return;
     }
+    if (config.sampling_bounds.initial_oxide_fraction.lower <= config.max_final_oxide_fraction) {
+      setLocalError("Maximum final oxide fraction must be below the minimum initial oxide fraction.");
+      return;
+    }
     setLocalError(null);
     onSubmit(request);
   };
@@ -194,7 +198,7 @@ export function OptimizationForm({ onSubmit, isPending, error, models, modelsLoa
       <FormSection title="Search & validation" description="Surrogate sample budget and real-simulator acceptance criteria.">
         <NumberField name="candidate_count" value={config.candidate_count} min={1} step={1} onChange={(candidate_count) => setConfig({ ...config, candidate_count: Math.round(candidate_count) })} />
         <NumberField name="validation_count" value={config.validation_count} min={1} step={1} onChange={(validation_count) => setConfig({ ...config, validation_count: Math.round(validation_count) })} />
-        <NumberField name="max_final_oxide_fraction" value={config.max_final_oxide_fraction} min={0} max={1} onChange={(max_final_oxide_fraction) => setConfig({ ...config, max_final_oxide_fraction })} />
+        <NumberField name="max_final_oxide_fraction" value={config.max_final_oxide_fraction} min={0} max={1} help="Must be below the minimum initial oxide fraction." onChange={(max_final_oxide_fraction) => setConfig({ ...config, max_final_oxide_fraction })} />
       </FormSection>
       <AdvancedSection title="Search bounds, solver & material" description="Constrain the operating regime and override physical defaults.">
         <div className="advanced-stack">

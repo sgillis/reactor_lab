@@ -156,7 +156,10 @@ export const defaultTrainingRequest = (): TrainingRequest => ({
 export const defaultOptimizationRequest = (): OptimizationRequest => ({
   model_id: "",
   optimization_config: {
-    sampling_bounds: defaultInputBounds(),
+    sampling_bounds: {
+      ...defaultInputBounds(),
+      initial_oxide_fraction: { lower: 0.8, upper: 1 },
+    },
     initial_temperature: 300,
     material: defaultMaterial(),
     solver: { num_steps: 200 },

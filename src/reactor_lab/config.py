@@ -263,7 +263,9 @@ class SamplingConfig:
 class OptimizationConfig:
     """Deterministic surrogate screening and simulator-validation settings."""
 
-    sampling_bounds: InputBounds = InputBounds()
+    sampling_bounds: InputBounds = InputBounds(
+        initial_oxide_fraction=Bounds(0.8, 1.0)
+    )
     initial_temperature: float = 300.0
     material: MaterialConfig = MaterialConfig()
     solver: SolverConfig = SolverConfig()
@@ -311,6 +313,11 @@ class OptimizationConfig:
             raise ValueError("initial_oxide_fraction bounds must be between zero and one")
         if not 0 <= bounds.initial_oxide_fraction.upper <= 1:
             raise ValueError("initial_oxide_fraction bounds must be between zero and one")
+        if bounds.initial_oxide_fraction.lower <= self.max_final_oxide_fraction:
+            raise ValueError(
+                "max_final_oxide_fraction must be less than the lower "
+                "initial_oxide_fraction bound"
+            )
 
 
 @dataclass(frozen=True, slots=True)

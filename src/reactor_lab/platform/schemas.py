@@ -152,7 +152,11 @@ class TrainingConfigSchema(Schema):
 
 
 class OptimizationConfigSchema(Schema):
-    sampling_bounds: InputBoundsSchema = Field(default_factory=InputBoundsSchema)
+    sampling_bounds: InputBoundsSchema = Field(
+        default_factory=lambda: InputBoundsSchema(
+            initial_oxide_fraction=BoundsSchema(lower=0.8, upper=1.0)
+        )
+    )
     initial_temperature: float = 300.0
     material: MaterialSchema = Field(default_factory=MaterialSchema)
     solver: SolverSchema = Field(default_factory=lambda: SolverSchema(num_steps=200))

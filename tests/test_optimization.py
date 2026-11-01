@@ -60,13 +60,13 @@ def base_optimization_config() -> OptimizationConfig:
         sampling_bounds=InputBounds(
             peak_temperature=Bounds(300.0, 600.0),
             residence_time=Bounds(0.1, 0.2),
-            hydrogen_concentration=Bounds(0.0, 2.0),
+            hydrogen_concentration=Bounds(20.0, 100.0),
             diameter=Bounds(30e-6, 50e-6),
-            initial_oxide_fraction=Bounds(0.01, 0.02),
+            initial_oxide_fraction=Bounds(0.2, 0.3),
         ),
         material=MaterialConfig(
             melting_temperature=1_000.0,
-            reaction_pre_exponential=0.0,
+            reaction_pre_exponential=10_000.0,
         ),
         solver=SolverConfig(num_steps=20),
         candidate_count=4,
@@ -74,6 +74,18 @@ def base_optimization_config() -> OptimizationConfig:
         max_final_oxide_fraction=0.125,
         seed=41,
     )
+
+
+@pytest.mark.parametrize("initial_lower", [0.1, 0.125])
+def test_initial_oxide_bounds_must_exceed_final_limit(initial_lower: float) -> None:
+    base = base_optimization_config()
+    sampling_bounds = replace(
+        base.sampling_bounds,
+        initial_oxide_fraction=Bounds(initial_lower, 0.6),
+    )
+
+    with pytest.raises(ValueError, match="max_final_oxide_fraction must be less"):
+        replace(base, sampling_bounds=sampling_bounds)
 
 
 def test_seeded_sampling_is_reproducible_and_within_bounds() -> None:
@@ -131,7 +143,7 @@ def test_nonfinite_surrogate_predictions_are_rejected(value: float) -> None:
 
 
 def test_no_surrogate_feasible_candidates_returns_empty_result() -> None:
-    result = optimize(controlled_surrogate(0.5, 500.0), base_optimization_config())
+    result = optimize(controlled_surrogate(0.6, 500.0), base_optimization_config())
 
     assert result.surrogate_feasible_count == 0
     assert result.validated_candidates == ()
@@ -146,6 +158,7 @@ def test_real_simulator_failures_are_preserved_without_recommendation() -> None:
             base.sampling_bounds,
             initial_oxide_fraction=Bounds(0.9, 0.95),
         ),
+        material=replace(base.material, reaction_pre_exponential=0.0),
         candidate_count=3,
         validation_count=2,
     )
